@@ -45,37 +45,71 @@ defmodule SimpleSearch do
   end
 
   def search_index(idx_name, search_string) when is_atom(idx_name) and is_binary(search_string) do
-    search_string
-    |> split()
-    |> Task.async_stream(fn search_substring ->
-      search_substring = String.downcase(search_substring)
+    search_result =
+      search_string
+      |> split()
+      |> Enum.reduce([], fn
+        _, :search_over ->
+          :search_over
 
-      :ets.foldl(
-        fn {field_name, t}, acc ->
-          [search_field_index_(t, field_name, search_substring) | acc]
-        end,
-        [],
-        idx_name
-      )
-    end)
-    |> Enum.flat_map(fn {:ok, res} -> res end)
-    |> List.flatten()
-    |> Enum.group_by(fn {doc_id, _} -> doc_id end, fn {_, v} -> v end)
+        search_substring, acc ->
+          search_substring = String.downcase(search_substring)
+
+          res =
+            :ets.foldl(
+              fn {field_name, t}, field_acc ->
+                [search_field_index_(t, field_name, search_substring) | field_acc]
+              end,
+              [],
+              idx_name
+            )
+            |> List.flatten()
+
+          if res == [] do
+            :search_over
+          else
+            [res | acc]
+          end
+      end)
+
+    if search_result == :search_over do
+      %{}
+    else
+      search_result
+      |> List.flatten()
+      |> Enum.group_by(fn {doc_id, _} -> doc_id end, fn {_, v} -> v end)
+    end
   end
 
   def search_field_index(idx_name, field_name, search_string)
       when is_atom(idx_name) and is_binary(field_name) and is_binary(search_string) do
     case :ets.lookup(idx_name, field_name) do
       [{_field_name, t}] ->
-        search_string
-        |> split()
-        |> Task.async_stream(fn search_substring ->
-          search_substring = String.downcase(search_substring)
-          search_field_index_(t, field_name, search_substring)
-        end)
-        |> Enum.flat_map(fn {:ok, res} -> res end)
-        |> List.flatten()
-        |> Enum.group_by(fn {doc_id, _} -> doc_id end, fn {_, v} -> v end)
+        search_result =
+          search_string
+          |> split()
+          |> Enum.reduce([], fn
+            _, :search_over ->
+              :search_over
+
+            search_substring, acc ->
+              search_substring = String.downcase(search_substring)
+              res = search_field_index_(t, field_name, search_substring)
+
+              if res == [] do
+                :search_over
+              else
+                [res | acc]
+              end
+          end)
+
+        if search_result == :search_over do
+          %{}
+        else
+          search_result
+          |> List.flatten()
+          |> Enum.group_by(fn {doc_id, _} -> doc_id end, fn {_, v} -> v end)
+        end
     end
   end
 

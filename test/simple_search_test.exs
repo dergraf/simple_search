@@ -32,6 +32,9 @@ defmodule SimpleSearchTest do
     assert %{"123" => [{"location", "jbay"}]} ==
              SimpleSearch.search_field_index(:test, "location", "JBa")
 
+    assert %{} == SimpleSearch.search_index(:test, "Jane Doe Manhatten")
+    assert %{} == SimpleSearch.search_field_index(:test, "location", "JBay South Africa")
+
     SimpleSearch.index_remove_doc(:test, "124")
 
     assert %{"123" => [{"location", "jbay"}, {"firstname", "john"}]} ==
