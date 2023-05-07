@@ -1,0 +1,3 @@
+%{
+  "stop_words": {:git, "https://github.com/Alir3z4/stop-words.git", "6dedf5e1413733ae9e2fec4564da69db5b1f9e8b", []},
+}
