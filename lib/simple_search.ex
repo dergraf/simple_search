@@ -52,7 +52,7 @@ defmodule SimpleSearch do
 
       :ets.foldl(
         fn {field_name, t}, acc ->
-          [search_field_index(t, field_name, search_substring) | acc]
+          [search_field_index_(t, field_name, search_substring) | acc]
         end,
         [],
         idx_name
@@ -61,6 +61,22 @@ defmodule SimpleSearch do
     |> Enum.flat_map(fn {:ok, res} -> res end)
     |> List.flatten()
     |> Enum.group_by(fn {doc_id, _} -> doc_id end, fn {_, v} -> v end)
+  end
+
+  def search_field_index(idx_name, field_name, search_string)
+      when is_atom(idx_name) and is_binary(field_name) and is_binary(search_string) do
+    case :ets.lookup(idx_name, field_name) do
+      [{_field_name, t}] ->
+        search_string
+        |> split()
+        |> Task.async_stream(fn search_substring ->
+          search_substring = String.downcase(search_substring)
+          search_field_index_(t, field_name, search_substring)
+        end)
+        |> Enum.flat_map(fn {:ok, res} -> res end)
+        |> List.flatten()
+        |> Enum.group_by(fn {doc_id, _} -> doc_id end, fn {_, v} -> v end)
+    end
   end
 
   defp split(field_value) when is_binary(field_value) do
@@ -85,18 +101,18 @@ defmodule SimpleSearch do
     end)
   end
 
-  defp search_field_index(t, field_name, search_substring) do
-    search_field_index(t, field_name, {search_substring, :_}, search_substring, [])
+  defp search_field_index_(t, field_name, search_substring) do
+    search_field_index_(t, field_name, {search_substring, :_}, search_substring, [])
   end
 
-  defp search_field_index(t, field_name, key, search_substring, acc) do
+  defp search_field_index_(t, field_name, key, search_substring, acc) do
     case :ets.next(t, key) do
       :"$end_of_table" ->
         acc
 
       {key_string, doc_id} = key ->
         if String.starts_with?(key_string, search_substring) do
-          search_field_index(t, field_name, key, search_substring, [
+          search_field_index_(t, field_name, key, search_substring, [
             {doc_id, {field_name, key_string}} | acc
           ])
         else
