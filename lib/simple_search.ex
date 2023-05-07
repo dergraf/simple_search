@@ -2,8 +2,8 @@ defmodule SimpleSearch do
   @moduledoc """
   Documentation for `SimpleSearch`.
   """
-  @stop_words_english File.read!("deps/stop_words/english.txt") |> String.split()
-  @stop_words_german File.read!("deps/stop_words/german.txt") |> String.split()
+  @stop_words_english File.read!("priv/english.txt") |> String.split()
+  @stop_words_german File.read!("priv/german.txt") |> String.split()
   @stop_words @stop_words_english ++ @stop_words_german
 
   def index_new(idx_name, config) when is_atom(idx_name) and is_map(config) do
@@ -46,7 +46,7 @@ defmodule SimpleSearch do
 
   def search_index(idx_name, search_string) when is_atom(idx_name) and is_binary(search_string) do
     search_string
-    |> String.split()
+    |> split()
     |> Task.async_stream(fn search_substring ->
       search_substring = String.downcase(search_substring)
 
@@ -64,7 +64,7 @@ defmodule SimpleSearch do
   end
 
   defp split(field_value) when is_binary(field_value) do
-    String.split(field_value)
+    String.split(field_value, [" ", "-", "/", "_", "."])
   end
 
   defp split(field_value) when is_list(field_value) do
