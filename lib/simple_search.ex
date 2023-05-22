@@ -44,72 +44,74 @@ defmodule SimpleSearch do
     :ok
   end
 
-  def search_index(idx_name, search_string) when is_atom(idx_name) and is_binary(search_string) do
-    search_result =
-      search_string
-      |> split()
-      |> Enum.reduce([], fn
-        _, :search_over ->
-          :search_over
+  def search(idx_name, field_search, string_search) do
+    results =
+      search_fields([], idx_name, field_search)
+      |> search_free_text(idx_name, string_search)
 
-        search_substring, acc ->
-          search_substring = String.downcase(search_substring)
+    case results do
+      :no_result ->
+        %{}
 
-          res =
-            :ets.foldl(
-              fn {field_name, t}, field_acc ->
-                [search_field_index_(t, field_name, search_substring) | field_acc]
-              end,
-              [],
-              idx_name
-            )
-            |> List.flatten()
-
-          if res == [] do
-            :search_over
-          else
-            [res | acc]
-          end
-      end)
-
-    if search_result == :search_over do
-      %{}
-    else
-      search_result
-      |> List.flatten()
-      |> Enum.group_by(fn {doc_id, _} -> doc_id end, fn {_, v} -> v end)
+      _ ->
+        results
+        |> List.flatten()
+        |> Enum.group_by(fn {doc_id, _} -> doc_id end, fn {_, v} -> v end)
     end
   end
 
-  def search_field_index(idx_name, field_name, search_string)
-      when is_atom(idx_name) and is_binary(field_name) and is_binary(search_string) do
+  defp search_fields(results, idx_name, field_search, default \\ :no_result)
+
+  defp search_fields(
+         results,
+         idx_name,
+         [{field_name, search_string} | rest],
+         default
+       ) do
     case :ets.lookup(idx_name, field_name) do
       [{_field_name, t}] ->
-        search_result =
-          search_string
-          |> split()
-          |> Enum.reduce([], fn
-            _, :search_over ->
-              :search_over
+        search_string
+        |> split()
+        |> Enum.reduce(results, fn
+          _, :no_result ->
+            default
 
-            search_substring, acc ->
-              search_substring = String.downcase(search_substring)
-              res = search_field_index_(t, field_name, search_substring)
+          search_substring, results_acc ->
+            search_substring = String.downcase(search_substring)
 
-              if res == [] do
-                :search_over
-              else
-                [res | acc]
-              end
-          end)
+            res = search_field_index_(t, field_name, search_substring)
 
-        if search_result == :search_over do
-          %{}
-        else
-          search_result
-          |> List.flatten()
-          |> Enum.group_by(fn {doc_id, _} -> doc_id end, fn {_, v} -> v end)
-        end
+            if res == [] do
+              default
+            else
+              search_fields([res | results_acc], idx_name, rest, default)
+            end
+        end)
+
+      _ ->
+        search_fields(results, idx_name, rest, default)
+    end
+  end
+
+  defp search_fields(results, _idx_name, [], _default), do: results
+
+  defp search_free_text(results, _, ""), do: results
+  defp search_free_text(:no_result, _, _), do: :no_result
+
+  defp search_free_text(results, idx_name, search_string) do
+    free_text_results =
+      :ets.foldl(
+        fn
+          {field_name, _t}, results_acc ->
+            search_fields(results_acc, idx_name, [{field_name, search_string}], results_acc)
+        end,
+        [],
+        idx_name
+      )
+
+    case free_text_results do
+      [] -> :no_result
+      _ -> free_text_results ++ results
     end
   end
 

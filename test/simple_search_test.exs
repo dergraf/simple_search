@@ -21,23 +21,23 @@ defmodule SimpleSearchTest do
              "123" => [{"location", "jbay"}, {"firstname", "john"}],
              "124" => [{"firstname", "jane"}]
            } ==
-             SimpleSearch.search_index(:test, "J")
+             SimpleSearch.search(:test, [], "J")
 
     assert %{"123" => [{"firstname", "john"}]} ==
-             SimpleSearch.search_index(:test, "Jo")
+             SimpleSearch.search(:test, [], "Jo")
 
     assert %{"124" => [{"location", "york"}]} ==
-             SimpleSearch.search_index(:test, "York")
+             SimpleSearch.search(:test, [], "York")
 
     assert %{"123" => [{"location", "jbay"}]} ==
-             SimpleSearch.search_field_index(:test, "location", "JBa")
+             SimpleSearch.search(:test, [{"location", "JBa"}], "")
 
-    assert %{} == SimpleSearch.search_index(:test, "Jane Doe Manhatten")
-    assert %{} == SimpleSearch.search_field_index(:test, "location", "JBay South Africa")
+    assert %{} == SimpleSearch.search(:test, [], "Jane Doe Manhatten")
+    assert %{} == SimpleSearch.search(:test, [{"location", "JBay"}], "South Africa")
 
     SimpleSearch.index_remove_doc(:test, "124")
 
     assert %{"123" => [{"location", "jbay"}, {"firstname", "john"}]} ==
-             SimpleSearch.search_index(:test, "J")
+             SimpleSearch.search(:test, [], "J")
   end
 end
